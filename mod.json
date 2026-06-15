@@ -1,0 +1,24 @@
+{
+    "geode": "5.7.1",
+    "gd": {
+        "win": "2.2081",
+        "android": "2.2081",
+        "mac": "2.2081",
+        "ios": "2.2081"
+    },
+
+    "version": "v1.0.0",
+    "id": "undefined0.draggable-popups",
+    "name": "Draggable Popups",
+    "developer": "undefined0",
+    "description": "Allows you to drag popups! Useful in the editor.",
+    "tags": [],
+
+    "dependencies": {
+        "undefined0.3d-api": "v1.0.0"
+    },
+
+    "links": {
+        "source": "https://github.com/undefined06855/example-mod"
+    }
+}
