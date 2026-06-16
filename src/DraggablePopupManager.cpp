@@ -106,6 +106,14 @@ geode::ListenerResult DraggablePopupManager::scroll(double y) {
     }
 }
 
+void DraggablePopupManager::stopAllAnimsOnPopup(FLAlertLayer* popup) {
+    cocos2d::CCAction* action;
+    while ((action = popup->getActionByTag(6855))) {
+        action->update(1.f);
+        popup->stopAction(action);
+    }
+}
+
 std::vector<FLAlertLayer*> DraggablePopupManager::findPopups(cocos2d::CCNode* parent) {
     std::vector<FLAlertLayer*> ret;
 
@@ -144,7 +152,10 @@ void DraggablePopupManager::beginDragOn(FLAlertLayer* layer) {
     m_popupRenderNode->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCFadeTo::create(.2f, 100)));
     layer->getParent()->addChild(m_popupRenderNode, layer->getZOrder());
 
-    layer->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCScaleBy::create(.1f, .95f)));
+    this->stopAllAnimsOnPopup(layer);
+    auto scaleAnim = cocos2d::CCEaseExponentialOut::create(cocos2d::CCScaleBy::create(.1f, .95f));
+    scaleAnim->setTag(6855);
+    layer->runAction(scaleAnim);
     layer->setVisible(false);
 
     layer->runAction(cocos2d::CCFadeTo::create(.2f, 0));
@@ -161,7 +172,10 @@ void DraggablePopupManager::stopDrag() {
     geode::log::trace("stop drag");
 
     if (auto layer = m_layer.lock()) {
-        layer->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCScaleBy::create(.1f, 1.f / .95f)));
+        this->stopAllAnimsOnPopup(layer);
+        auto scaleAnim = cocos2d::CCEaseExponentialOut::create(cocos2d::CCScaleBy::create(.1f, 1.f / .95f));
+        scaleAnim->setTag(6855);
+        layer->runAction(scaleAnim);
         layer->setVisible(true);
 
         // if it's close enough to 0, 0 then snap it back and set the background opacity back
@@ -171,14 +185,44 @@ void DraggablePopupManager::stopDrag() {
 
             auto origOpacity = geode::cast::typeinfo_cast<cocos2d::CCInteger*>(layer->getUserObject("initial-bg-opacity"_spr));
             if (origOpacity) {
-                layer->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCFadeTo::create(.2f, origOpacity->getValue())));
+                auto opacityAnim = cocos2d::CCEaseExponentialOut::create(cocos2d::CCFadeTo::create(.2f, origOpacity->getValue()));
+                opacityAnim->setTag(6855);
+                layer->runAction(opacityAnim);
                 layer->setUserObject("initial-bg-opacity"_spr, nullptr);
             }
 
             auto origScale = geode::cast::typeinfo_cast<cocos2d::CCFloat*>(layer->getUserObject("initial-scale"_spr));
             if (origScale) {
-                layer->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCScaleTo::create(.2f, origScale->getValue())));
+                auto revertScaleAnim = cocos2d::CCEaseExponentialOut::create(cocos2d::CCScaleTo::create(.2f, origScale->getValue()));
+                revertScaleAnim->setTag(6855);
+                layer->runAction(revertScaleAnim);
                 layer->setUserObject("initial-scale"_spr, nullptr);
+            }
+        }
+
+        auto bg = layer->m_mainLayer->getChildByID("background");
+        if (!bg) bg = layer->m_mainLayer->getChildByType<cocos2d::extension::CCScale9Sprite>(0);
+        if (bg) {
+            auto bottomLeft = layer->m_mainLayer->convertToWorldSpace(bg->getPosition() - bg->getScaledContentSize() / 2.f);
+            auto topRight = layer->m_mainLayer->convertToWorldSpace(bg->getPosition() + bg->getScaledContentSize() / 2.f);
+            auto bgRect = cocos2d::CCRect{ bottomLeft, topRight - bottomLeft };
+
+            auto winSize = cocos2d::CCDirector::get()->getWinSize();
+            auto winRect = cocos2d::CCRect{ { 40.f, 40.f }, winSize - 80.f };
+
+            if (!bgRect.intersectsRect(winRect)) {
+                float dx = 0.f;
+                float dy = 0.f;
+
+                if (bgRect.getMinX() > winRect.getMaxX()) dx = winRect.getMaxX() - bgRect.getMinX();
+                else if (bgRect.getMaxX() < winRect.getMinX()) dx = winRect.getMinX() - bgRect.getMaxX();
+
+                if (bgRect.getMinY() > winRect.getMaxY()) dy = winRect.getMaxY() - bgRect.getMinY();
+                else if (bgRect.getMaxY() < winRect.getMinY()) dy = winRect.getMinY() - bgRect.getMaxY();
+
+                auto adjustAnim = cocos2d::CCEaseExponentialOut::create(cocos2d::CCMoveBy::create(.2f, { dx, dy }));
+                adjustAnim->setTag(6855);
+                layer->runAction(adjustAnim);
             }
         }
     }
@@ -192,17 +236,18 @@ void DraggablePopupManager::stopDrag() {
 }
 
 $on_mod(Loaded) {
+    // low priority so it runs before aup's touchdispatcher
     geode::MouseInputEvent().listen([](const geode::MouseInputData& event) {
         return DraggablePopupManager::get().input(event);
-    }).leak();
+    }, -10).leak();
 
     geode::ScrollWheelEvent().listen([](double x, double y) {
         return DraggablePopupManager::get().scroll(y);
-    }).leak();
+    }, -10).leak();
 
     geode::MouseMoveEvent().listen([](int32_t x, int32_t y) {
         return DraggablePopupManager::get().move();
-    }).leak();
+    }, -10).leak();
 
     static bool s_queuedThisFrame = false;
     geode::listenForAllSettingChanges([&](std::string_view, std::shared_ptr<geode::SettingV3>) {

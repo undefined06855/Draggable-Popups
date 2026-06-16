@@ -20,6 +20,8 @@ public:
     geode::ListenerResult move();
     geode::ListenerResult scroll(double y);
 
+    void stopAllAnimsOnPopup(FLAlertLayer* popup);
+    
     std::vector<FLAlertLayer*> findPopups(cocos2d::CCNode* parent);
     void beginDragOn(FLAlertLayer* layer);
     void stopDrag();
