@@ -1,4 +1,5 @@
 #include "DraggablePopupManager.hpp"
+#include <Geode/ui/GeodeUI.hpp>
 #include <Geode/utils/VMTHookManager.hpp>
 #include <ranges>
 
@@ -16,7 +17,28 @@ DraggablePopupManager& DraggablePopupManager::get() {
 }
 
 geode::ListenerResult DraggablePopupManager::input(const geode::MouseInputData& event) {
-    if (event.button != geode::MouseInputData::Button::Middle) {
+    static const std::unordered_map<std::string, geode::MouseInputData::Button> settingToButtonMap = {
+        { "Left", geode::MouseInputData::Button::Left },
+        { "Middle", geode::MouseInputData::Button::Middle },
+        { "Right", geode::MouseInputData::Button::Right },
+    };
+
+    static const std::unordered_map<std::string, geode::KeyboardModifier> settingToModifierMap = {
+        { "None", geode::KeyboardModifier::None },
+        { "Ctrl", geode::KeyboardModifier::Control },
+        { "Alt", geode::KeyboardModifier::Alt },
+        { "Shift", geode::KeyboardModifier::Shift },
+        { "Ctrl+Shift", geode::KeyboardModifier::Control | geode::KeyboardModifier::Shift },
+        { "Ctrl+Alt", geode::KeyboardModifier::Control | geode::KeyboardModifier::Alt },
+        { "Alt+Shift", geode::KeyboardModifier::Alt | geode::KeyboardModifier::Shift },
+        { "Ctrl+Alt+Shift", geode::KeyboardModifier::Control | geode::KeyboardModifier::Alt | geode::KeyboardModifier::Shift },
+    };
+
+    if (settingToButtonMap.at(geode::Mod::get()->getSettingValue<std::string>("mouse-button")) != event.button) {
+        return geode::ListenerResult::Propagate;
+    }
+
+    if (settingToModifierMap.at(geode::Mod::get()->getSettingValue<std::string>("modifier-keys")) != event.modifiers) {
         return geode::ListenerResult::Propagate;
     }
 
@@ -157,7 +179,7 @@ void DraggablePopupManager::stopDrag() {
 
         // if it's close enough to 0, 0 then snap it back and set the background opacity back
         // for a smaller scale we want a larger area to be able to snap it to
-        if (layer->m_mainLayer->getPosition().getDistance({ 0.f, 0.f }) < 35.f * 1.f / layer->m_mainLayer->getScale()) {
+        if (layer->m_mainLayer->getPosition().getDistance({ 0.f, 0.f }) < 35.f * (1.f / layer->m_mainLayer->getScale())) {
             layer->m_mainLayer->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCMoveTo::create(.2f, { 0.f, 0.f })));
 
             auto origOpacity = geode::cast::typeinfo_cast<cocos2d::CCInteger*>(layer->getUserObject("initial-bg-opacity"_spr));
@@ -194,4 +216,30 @@ $on_mod(Loaded) {
     geode::MouseMoveEvent().listen([](int32_t x, int32_t y) {
         return DraggablePopupManager::get().move();
     }).leak();
+
+    static bool s_queuedThisFrame = false;
+    geode::listenForAllSettingChanges([&](std::string_view, std::shared_ptr<geode::SettingV3>) {
+        if (s_queuedThisFrame) return;
+        s_queuedThisFrame = true;
+
+        geode::Loader::get()->queueInMainThread([&] {
+            s_queuedThisFrame = false;
+
+            if (
+                geode::Mod::get()->getSettingValue<std::string>("mouse-button") == "Left"
+             && geode::Mod::get()->getSettingValue<std::string>("modifier-keys") == "None") {
+                geode::createQuickPopup(
+                    "Draggable Popups",
+                    "Hey! You <cr>can't</c> use the <cy>Left</c> mouse button with\n"
+                    "<co>no modifier keys!</c> <cj>Sorry!</c>",
+                    "Ok",
+                    nullptr,
+                    [](FLAlertLayer*, bool) {
+                        geode::Mod::get()->setSettingValue<std::string>("mouse-button", "Right");
+                        geode::openSettingsPopup(geode::Mod::get(), false);
+                    }
+                );
+            }
+        });
+    });
 }

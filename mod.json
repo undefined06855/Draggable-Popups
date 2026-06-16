@@ -12,7 +12,7 @@
     "name": "Draggable Popups",
     "developer": "undefined0",
     "description": "Allows you to drag popups! Useful in the editor.",
-    "tags": [],
+    "tags": [ "universal", "editor", "interface" ],
 
     "dependencies": {
         "alphalaneous.alphas-ui-pack": "v1.0.0"
@@ -20,5 +20,29 @@
 
     "links": {
         "source": "https://github.com/undefined06855/example-mod"
+    },
+
+    "settings": {
+        "mouse-button": {
+            "type": "string",
+            "name": "Mouse Button",
+            "default": "Right",
+            "one-of": [ "Left", "Middle", "Right" ],
+            "platforms": [ "desktop" ]
+        },
+        "modifier-keys": {
+            "type": "string",
+            "name": "Modifier Keys",
+            "default": "None",
+            "one-of": [ "None", "Ctrl", "Alt", "Shift", "Ctrl+Shift", "Ctrl+Alt", "Alt+Shift", "Ctrl+Alt+Shift" ],
+            "platforms": [ "desktop" ]
+        },
+        "scroll-wheel-enabled": {
+            "type": "bool",
+            "name": "Scroll Wheel Enabled",
+            "description": "Whether the scroll wheel can be used to zoom popups in and out.",
+            "default": true,
+            "platforms": [ "desktop" ]
+        }
     }
 }
