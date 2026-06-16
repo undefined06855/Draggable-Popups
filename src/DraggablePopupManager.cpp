@@ -94,7 +94,7 @@ geode::ListenerResult DraggablePopupManager::scroll(double y) {
     if (auto layer = m_layer.lock()) {
         float scale = y < 0.0 ? .75f : 1.3333f;
         float finalScale = layer->m_mainLayer->getScale() * scale;
-        if (finalScale < .25f || finalScale > 1.5f) {
+        if (finalScale < .25f || finalScale > 1.f) {
             return geode::ListenerResult::Stop;
         }
 
@@ -122,11 +122,6 @@ std::vector<FLAlertLayer*> DraggablePopupManager::findPopups(cocos2d::CCNode* pa
     return ret;
 }
 
-cocos2d::extension::CCScale9Sprite* DraggablePopupManager::findPopupBackground(FLAlertLayer* popup) {
-    if (auto nodeIDs = geode::cast::typeinfo_cast<cocos2d::extension::CCScale9Sprite*>(popup->m_mainLayer->getChildByID("background"))) return nodeIDs;
-    return popup->m_mainLayer->getChildByType<cocos2d::extension::CCScale9Sprite*>(0);
-}
-
 void DraggablePopupManager::beginDragOn(FLAlertLayer* layer) {
     geode::log::trace("begin drag on {}", layer);
 
@@ -146,14 +141,10 @@ void DraggablePopupManager::beginDragOn(FLAlertLayer* layer) {
     );
 
     m_popupRenderNode = alpha::ui::RenderNode::create(m_nodeVisitWrapper, /* constrain */ false);
-    m_popupRenderNode->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCFadeTo::create(.2f, 80)));
+    m_popupRenderNode->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCFadeTo::create(.2f, 100)));
     layer->getParent()->addChild(m_popupRenderNode, layer->getZOrder());
 
-    auto bg = this->findPopupBackground(layer);
-    if (bg) {
-        bg->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCScaleTo::create(.1f, 1.025f)));
-    }
-
+    layer->m_mainLayer->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCScaleBy::create(.1f, .95f)));
     layer->setVisible(false);
 
     layer->runAction(cocos2d::CCFadeTo::create(.2f, 0));
@@ -170,11 +161,7 @@ void DraggablePopupManager::stopDrag() {
     geode::log::trace("stop drag");
 
     if (auto layer = m_layer.lock()) {
-        auto bg = this->findPopupBackground(layer);
-        if (bg) {
-            bg->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCScaleTo::create(.1f, 1.f)));
-        }
-
+        layer->m_mainLayer->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCScaleBy::create(.1f, 1.f / .95f)));
         layer->setVisible(true);
 
         // if it's close enough to 0, 0 then snap it back and set the background opacity back

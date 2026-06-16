@@ -21,7 +21,6 @@ public:
     geode::ListenerResult scroll(double y);
 
     std::vector<FLAlertLayer*> findPopups(cocos2d::CCNode* parent);
-    cocos2d::extension::CCScale9Sprite* findPopupBackground(FLAlertLayer* popup);
     void beginDragOn(FLAlertLayer* layer);
     void stopDrag();
 };
