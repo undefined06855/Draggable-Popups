@@ -1,10 +1,14 @@
 #include "DraggablePopupManager.hpp"
+#include <Geode/utils/VMTHookManager.hpp>
+#include <ranges>
 
 DraggablePopupManager::DraggablePopupManager()
     : m_layer(nullptr)
     , m_dragging(false)
     , m_dragStart(0.f, 0.f)
-    , m_popupInitialPos(0.f, 0.f) {}
+    , m_popupInitialPos(0.f, 0.f)
+    , m_popupRenderNode(nullptr)
+    , m_popupInitialScale(0.f) {}
 
 DraggablePopupManager& DraggablePopupManager::get() {
     static DraggablePopupManager instance;
@@ -29,7 +33,11 @@ geode::ListenerResult DraggablePopupManager::input(const geode::MouseInputData& 
             return geode::ListenerResult::Propagate;
         }
 
-        this->beginDragOn(layers.back());
+        for (auto layer : layers | std::views::reverse) {
+            if (layer->getUserFlag("undraggable-popup"_spr)) continue;
+            this->beginDragOn(layer);
+            break;
+        }
 
         return geode::ListenerResult::Stop;
     }
@@ -43,11 +51,34 @@ geode::ListenerResult DraggablePopupManager::move() {
     }
 
     if (auto layer = m_layer.lock()) {
-        // we have a valid layer, keep dragging
         layer->m_mainLayer->setPosition(m_popupInitialPos + (geode::cocos::getMousePos() - m_dragStart));
         return geode::ListenerResult::Stop;
     } else {
-        // we have no valid layer, probably got destroyed idk
+        this->stopDrag();
+        return geode::ListenerResult::Propagate;
+    }
+}
+
+geode::ListenerResult DraggablePopupManager::scroll(double y) {
+    if (!m_dragging) {
+        return geode::ListenerResult::Propagate;
+    }
+
+    // we don't care about this but also we do want to "handle" it
+    if (y == 0.0) {
+        return geode::ListenerResult::Stop;
+    }
+
+    if (auto layer = m_layer.lock()) {
+        float scale = y < 0.0 ? .75f : 1.3333f;
+        float finalScale = layer->m_mainLayer->getScale() * scale;
+        if (finalScale < .25f || finalScale > 1.5f) {
+            return geode::ListenerResult::Stop;
+        }
+
+        layer->m_mainLayer->setScale(finalScale);
+        return geode::ListenerResult::Stop;
+    } else {
         this->stopDrag();
         return geode::ListenerResult::Propagate;
     }
@@ -75,33 +106,58 @@ cocos2d::extension::CCScale9Sprite* DraggablePopupManager::findPopupBackground(F
 }
 
 void DraggablePopupManager::beginDragOn(FLAlertLayer* layer) {
-    auto bg = this->findPopupBackground(layer);
-    if (bg) {
-        bg->runAction(cocos2d::CCFadeTo::create(.2f, 0));
-    }
+    geode::log::trace("begin drag on {}", layer);
 
     m_dragging = true;
     m_layer = layer;
     m_dragStart = geode::cocos::getMousePos();
+    m_popupInitialPos = layer->m_mainLayer->getPosition();
 
+    m_nodeVisitWrapper = NodeVisitWrapper::create(
+        [this] {
+            if (auto layer = m_layer.lock()) {
+                layer->setVisible(true);
+                layer->visit();
+                layer->setVisible(false);
+            }
+        }
+    );
+
+    m_popupRenderNode = alpha::ui::RenderNode::create(m_nodeVisitWrapper, /* constrain */ false);
+    m_popupRenderNode->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCFadeTo::create(.2f, 80)));
+    layer->getParent()->addChild(m_popupRenderNode, layer->getZOrder());
+
+    auto bg = this->findPopupBackground(layer);
+    if (bg) {
+        bg->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCScaleTo::create(.1f, 1.025f)));
+    }
+
+    layer->setVisible(false);
+
+    layer->runAction(cocos2d::CCFadeTo::create(.2f, 0));
     if (!layer->getUserObject("initial-bg-opacity"_spr)) {
         layer->setUserObject("initial-bg-opacity"_spr, cocos2d::CCInteger::create(layer->getOpacity()));
     }
-    
-    layer->runAction(cocos2d::CCFadeTo::create(.2f, 50));
 
-    m_popupInitialPos = layer->m_mainLayer->getPosition();
+    if (!layer->getUserObject("initial-scale"_spr)) {
+        layer->setUserObject("initial-scale"_spr, cocos2d::CCFloat::create(layer->m_mainLayer->getScale()));
+    }
 }
 
 void DraggablePopupManager::stopDrag() {
+    geode::log::trace("stop drag");
+
     if (auto layer = m_layer.lock()) {
         auto bg = this->findPopupBackground(layer);
         if (bg) {
-            bg->runAction(cocos2d::CCFadeTo::create(.2f, 255));
+            bg->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCScaleTo::create(.1f, 1.f)));
         }
 
+        layer->setVisible(true);
+
         // if it's close enough to 0, 0 then snap it back and set the background opacity back
-        if (layer->m_mainLayer->getPosition().getDistance({ 0.f, 0.f }) < 50.f) {
+        // for a smaller scale we want a larger area to be able to snap it to
+        if (layer->m_mainLayer->getPosition().getDistance({ 0.f, 0.f }) < 35.f * 1.f / layer->m_mainLayer->getScale()) {
             layer->m_mainLayer->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCMoveTo::create(.2f, { 0.f, 0.f })));
 
             auto origOpacity = geode::cast::typeinfo_cast<cocos2d::CCInteger*>(layer->getUserObject("initial-bg-opacity"_spr));
@@ -109,18 +165,30 @@ void DraggablePopupManager::stopDrag() {
                 layer->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCFadeTo::create(.2f, origOpacity->getValue())));
                 layer->setUserObject("initial-bg-opacity"_spr, nullptr);
             }
-        } else {
-            layer->runAction(cocos2d::CCFadeTo::create(.2f, 0));
+
+            auto origScale = geode::cast::typeinfo_cast<cocos2d::CCFloat*>(layer->getUserObject("initial-scale"_spr));
+            if (origScale) {
+                layer->m_mainLayer->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCScaleTo::create(.2f, origScale->getValue())));
+                layer->setUserObject("initial-scale"_spr, nullptr);
+            }
         }
     }
 
+    m_popupRenderNode->removeFromParent();
+    m_popupRenderNode = nullptr;
+    m_nodeVisitWrapper = nullptr;
     m_layer = nullptr;
+
     m_dragging = false;
 }
 
 $on_mod(Loaded) {
     geode::MouseInputEvent().listen([](const geode::MouseInputData& event) {
         return DraggablePopupManager::get().input(event);
+    }).leak();
+
+    geode::ScrollWheelEvent().listen([](double x, double y) {
+        return DraggablePopupManager::get().scroll(y);
     }).leak();
 
     geode::MouseMoveEvent().listen([](int32_t x, int32_t y) {
