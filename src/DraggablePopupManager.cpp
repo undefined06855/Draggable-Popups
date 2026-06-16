@@ -73,7 +73,7 @@ geode::ListenerResult DraggablePopupManager::move() {
     }
 
     if (auto layer = m_layer.lock()) {
-        layer->m_mainLayer->setPosition(m_popupInitialPos + (geode::cocos::getMousePos() - m_dragStart));
+        layer->setPosition(m_popupInitialPos + (geode::cocos::getMousePos() - m_dragStart));
         return geode::ListenerResult::Stop;
     } else {
         this->stopDrag();
@@ -93,12 +93,12 @@ geode::ListenerResult DraggablePopupManager::scroll(double y) {
 
     if (auto layer = m_layer.lock()) {
         float scale = y < 0.0 ? .75f : 1.3333f;
-        float finalScale = layer->m_mainLayer->getScale() * scale;
+        float finalScale = layer->getScale() * scale;
         if (finalScale < .25f || finalScale > 1.f) {
             return geode::ListenerResult::Stop;
         }
 
-        layer->m_mainLayer->setScale(finalScale);
+        layer->setScale(finalScale);
         return geode::ListenerResult::Stop;
     } else {
         this->stopDrag();
@@ -128,7 +128,7 @@ void DraggablePopupManager::beginDragOn(FLAlertLayer* layer) {
     m_dragging = true;
     m_layer = layer;
     m_dragStart = geode::cocos::getMousePos();
-    m_popupInitialPos = layer->m_mainLayer->getPosition();
+    m_popupInitialPos = layer->getPosition();
 
     m_nodeVisitWrapper = NodeVisitWrapper::create(
         [this] {
@@ -144,7 +144,7 @@ void DraggablePopupManager::beginDragOn(FLAlertLayer* layer) {
     m_popupRenderNode->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCFadeTo::create(.2f, 100)));
     layer->getParent()->addChild(m_popupRenderNode, layer->getZOrder());
 
-    layer->m_mainLayer->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCScaleBy::create(.1f, .95f)));
+    layer->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCScaleBy::create(.1f, .95f)));
     layer->setVisible(false);
 
     layer->runAction(cocos2d::CCFadeTo::create(.2f, 0));
@@ -153,7 +153,7 @@ void DraggablePopupManager::beginDragOn(FLAlertLayer* layer) {
     }
 
     if (!layer->getUserObject("initial-scale"_spr)) {
-        layer->setUserObject("initial-scale"_spr, cocos2d::CCFloat::create(layer->m_mainLayer->getScale()));
+        layer->setUserObject("initial-scale"_spr, cocos2d::CCFloat::create(layer->getScale()));
     }
 }
 
@@ -161,13 +161,13 @@ void DraggablePopupManager::stopDrag() {
     geode::log::trace("stop drag");
 
     if (auto layer = m_layer.lock()) {
-        layer->m_mainLayer->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCScaleBy::create(.1f, 1.f / .95f)));
+        layer->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCScaleBy::create(.1f, 1.f / .95f)));
         layer->setVisible(true);
 
         // if it's close enough to 0, 0 then snap it back and set the background opacity back
         // for a smaller scale we want a larger area to be able to snap it to
-        if (layer->m_mainLayer->getPosition().getDistance({ 0.f, 0.f }) < 35.f * (1.f / layer->m_mainLayer->getScale())) {
-            layer->m_mainLayer->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCMoveTo::create(.2f, { 0.f, 0.f })));
+        if (layer->getPosition().getDistance({ 0.f, 0.f }) < 35.f * (1.f / layer->getScale())) {
+            layer->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCMoveTo::create(.2f, { 0.f, 0.f })));
 
             auto origOpacity = geode::cast::typeinfo_cast<cocos2d::CCInteger*>(layer->getUserObject("initial-bg-opacity"_spr));
             if (origOpacity) {
@@ -177,7 +177,7 @@ void DraggablePopupManager::stopDrag() {
 
             auto origScale = geode::cast::typeinfo_cast<cocos2d::CCFloat*>(layer->getUserObject("initial-scale"_spr));
             if (origScale) {
-                layer->m_mainLayer->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCScaleTo::create(.2f, origScale->getValue())));
+                layer->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCScaleTo::create(.2f, origScale->getValue())));
                 layer->setUserObject("initial-scale"_spr, nullptr);
             }
         }
