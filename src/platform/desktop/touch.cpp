@@ -33,7 +33,7 @@ $on_mod(Loaded) {
 
     geode::ScrollWheelEvent().listen([](double x, double y) {
         if (y == 0.0) return geode::ListenerResult::Propagate;
-        
+
         float scale = y < 0.0 ? .75f : 1.3333f;
         return DraggablePopupManager::get().scroll(y);
     }, -10).leak();
