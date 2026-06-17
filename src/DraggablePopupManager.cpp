@@ -1,6 +1,5 @@
 #include "DraggablePopupManager.hpp"
 #include <Geode/ui/GeodeUI.hpp>
-#include <Geode/utils/VMTHookManager.hpp>
 #include <ranges>
 
 DraggablePopupManager::DraggablePopupManager()
@@ -135,6 +134,22 @@ void DraggablePopupManager::beginDragOn(FLAlertLayer* layer, cocos2d::CCPoint po
     if (!layer->getUserObject("initial-scale"_spr)) {
         layer->setUserObject("initial-scale"_spr, cocos2d::CCFloat::create(layer->getScale()));
     }
+
+    // malikhw47.blur-behind-popups
+    auto blurOptions = layer->getUserObject("thesillydoggo.blur-api/blur-options");
+    if (blurOptions) {
+        layer->setUserObject("blur-options-copy"_spr, blurOptions);
+        layer->setUserObject("thesillydoggo.blur-api/blur-options", nullptr);
+    }
+
+    // alphalaneous.bluralert
+    if (auto blurAlertLayerColor = layer->getChildByType<cocos2d::CCLayerColor>(0)) {
+        auto blurOptions = blurAlertLayerColor->getUserObject("thesillydoggo.blur-api/blur-options");
+        if (blurOptions) {
+            blurAlertLayerColor->setUserObject("blur-options-copy"_spr, blurOptions);
+            blurAlertLayerColor->setUserObject("thesillydoggo.blur-api/blur-options", nullptr);
+        }
+    }
 }
 
 void DraggablePopupManager::stopDrag() {
@@ -166,6 +181,22 @@ void DraggablePopupManager::stopDrag() {
                 revertScaleAnim->setTag(6855);
                 layer->runAction(revertScaleAnim);
                 layer->setUserObject("initial-scale"_spr, nullptr);
+            }
+
+            // malikhw47.blur-behind-popups
+            auto blurOptions = layer->getUserObject("blur-options-copy"_spr);
+            if (blurOptions) {
+                layer->setUserObject("thesillydoggo.blur-api/blur-options", blurOptions);
+                layer->setUserObject("blur-options-copy"_spr, nullptr);
+            }
+
+            // alphalaneous.bluralert
+            if (auto blurAlertLayerColor = layer->getChildByType<cocos2d::CCLayerColor>(0)) {
+                auto blurOptions = blurAlertLayerColor->getUserObject("blur-options-copy"_spr);
+                if (blurOptions) {
+                    blurAlertLayerColor->setUserObject("thesillydoggo.blur-api/blur-options", blurOptions);
+                    blurAlertLayerColor->setUserObject("blur-options-copy"_spr, nullptr);
+                }
             }
         }
 
