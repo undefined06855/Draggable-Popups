@@ -16,13 +16,13 @@ public:
     alpha::ui::RenderNode* m_popupRenderNode;
     geode::Ref<NodeVisitWrapper> m_nodeVisitWrapper;
 
-    geode::ListenerResult input(const geode::MouseInputData& event);
-    geode::ListenerResult move();
-    geode::ListenerResult scroll(double y);
+    bool input(bool down, cocos2d::CCPoint pos);
+    bool move(cocos2d::CCPoint pos);
+    bool scroll(float scale);
 
     void stopAllAnimsOnPopup(FLAlertLayer* popup);
-    
+
     std::vector<FLAlertLayer*> findPopups(cocos2d::CCNode* parent);
-    void beginDragOn(FLAlertLayer* layer);
+    void beginDragOn(FLAlertLayer* layer, cocos2d::CCPoint pos);
     void stopDrag();
 };

@@ -10,10 +10,21 @@ endif()
 
 project(DraggablePopups VERSION 1.0.0)
 
-file(GLOB_RECURSE SOURCES
-    src/*.cpp
-)
+file(GLOB_RECURSE SOURCES src/*.cpp)
+file(GLOB_RECURSE PLATFORM_SPECIFIC_SOURCES src/platform/*.cpp)
+list(REMOVE_ITEM SOURCES ${PLATFORM_SPECIFIC_SOURCES})
+
+if ((APPLE AND NOT IOS) OR WIN32)
+    file(GLOB_RECURSE DESKTOP_SOURCES src/platform/desktop/*.cpp)
+    list(APPEND SOURCES ${DESKTOP_SOURCES})
+elseif (ANDROID)
+    file(GLOB_RECURSE ANDROID_SOURCES src/platform/android/*.cpp)
+    list(APPEND SOURCES ${ANDROID_SOURCES})
+endif()
+
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
+
+target_include_directories(${PROJECT_NAME} PRIVATE src/)
 
 if (NOT DEFINED ENV{GEODE_SDK})
     message(FATAL_ERROR "Unable to find Geode SDK! Please define GEODE_SDK environment variable to point to Geode")

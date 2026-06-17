@@ -16,40 +16,15 @@ DraggablePopupManager& DraggablePopupManager::get() {
     return instance;
 }
 
-geode::ListenerResult DraggablePopupManager::input(const geode::MouseInputData& event) {
-    static const std::unordered_map<std::string, geode::MouseInputData::Button> settingToButtonMap = {
-        { "Left", geode::MouseInputData::Button::Left },
-        { "Middle", geode::MouseInputData::Button::Middle },
-        { "Right", geode::MouseInputData::Button::Right },
-    };
-
-    static const std::unordered_map<std::string, geode::KeyboardModifier> settingToModifierMap = {
-        { "None", geode::KeyboardModifier::None },
-        { "Ctrl", geode::KeyboardModifier::Control },
-        { "Alt", geode::KeyboardModifier::Alt },
-        { "Shift", geode::KeyboardModifier::Shift },
-        { "Ctrl+Shift", geode::KeyboardModifier::Control | geode::KeyboardModifier::Shift },
-        { "Ctrl+Alt", geode::KeyboardModifier::Control | geode::KeyboardModifier::Alt },
-        { "Alt+Shift", geode::KeyboardModifier::Alt | geode::KeyboardModifier::Shift },
-        { "Ctrl+Alt+Shift", geode::KeyboardModifier::Control | geode::KeyboardModifier::Alt | geode::KeyboardModifier::Shift },
-    };
-
-    if (settingToButtonMap.at(geode::Mod::get()->getSettingValue<std::string>("mouse-button")) != event.button) {
-        return geode::ListenerResult::Propagate;
-    }
-
-    if (settingToModifierMap.at(geode::Mod::get()->getSettingValue<std::string>("modifier-keys")) != event.modifiers) {
-        return geode::ListenerResult::Propagate;
-    }
-
+bool DraggablePopupManager::input(bool down, cocos2d::CCPoint pos) {
     // dragging but button released, stop
-    if (event.action == geode::MouseInputData::Action::Release && m_dragging) {
+    if (!down && m_dragging) {
         this->stopDrag();
         return geode::ListenerResult::Stop;
     }
 
     // not dragging but button held, start
-    if (event.action == geode::MouseInputData::Action::Press && !m_dragging) {
+    if (down && !m_dragging) {
         auto layers = this->findPopups(cocos2d::CCScene::get());
         if (layers.size() == 0) {
             return geode::ListenerResult::Propagate;
@@ -57,7 +32,7 @@ geode::ListenerResult DraggablePopupManager::input(const geode::MouseInputData& 
 
         for (auto layer : layers | std::views::reverse) {
             if (layer->getUserFlag("undraggable-popup"_spr)) continue;
-            this->beginDragOn(layer);
+            this->beginDragOn(layer, pos);
             break;
         }
 
@@ -67,13 +42,13 @@ geode::ListenerResult DraggablePopupManager::input(const geode::MouseInputData& 
     return geode::ListenerResult::Propagate;
 }
 
-geode::ListenerResult DraggablePopupManager::move() {
+bool DraggablePopupManager::move(cocos2d::CCPoint pos) {
     if (!m_dragging) {
         return geode::ListenerResult::Propagate;
     }
 
     if (auto layer = m_layer.lock()) {
-        layer->setPosition(m_popupInitialPos + (geode::cocos::getMousePos() - m_dragStart));
+        layer->setPosition(m_popupInitialPos + (pos - m_dragStart));
         return geode::ListenerResult::Stop;
     } else {
         this->stopDrag();
@@ -81,18 +56,12 @@ geode::ListenerResult DraggablePopupManager::move() {
     }
 }
 
-geode::ListenerResult DraggablePopupManager::scroll(double y) {
+bool DraggablePopupManager::scroll(float scale) {
     if (!m_dragging) {
         return geode::ListenerResult::Propagate;
     }
 
-    // we don't care about this but also we do want to "handle" it
-    if (y == 0.0) {
-        return geode::ListenerResult::Stop;
-    }
-
     if (auto layer = m_layer.lock()) {
-        float scale = y < 0.0 ? .75f : 1.3333f;
         float finalScale = layer->getScale() * scale;
         if (finalScale < .25f || finalScale > 1.f) {
             return geode::ListenerResult::Stop;
@@ -130,12 +99,12 @@ std::vector<FLAlertLayer*> DraggablePopupManager::findPopups(cocos2d::CCNode* pa
     return ret;
 }
 
-void DraggablePopupManager::beginDragOn(FLAlertLayer* layer) {
+void DraggablePopupManager::beginDragOn(FLAlertLayer* layer, cocos2d::CCPoint pos) {
     geode::log::trace("begin drag on {}", layer);
 
     m_dragging = true;
     m_layer = layer;
-    m_dragStart = geode::cocos::getMousePos();
+    m_dragStart = pos;
     m_popupInitialPos = layer->getPosition();
 
     m_nodeVisitWrapper = NodeVisitWrapper::create(
@@ -236,19 +205,6 @@ void DraggablePopupManager::stopDrag() {
 }
 
 $on_mod(Loaded) {
-    // low priority so it runs before aup's touchdispatcher
-    geode::MouseInputEvent().listen([](const geode::MouseInputData& event) {
-        return DraggablePopupManager::get().input(event);
-    }, -10).leak();
-
-    geode::ScrollWheelEvent().listen([](double x, double y) {
-        return DraggablePopupManager::get().scroll(y);
-    }, -10).leak();
-
-    geode::MouseMoveEvent().listen([](int32_t x, int32_t y) {
-        return DraggablePopupManager::get().move();
-    }, -10).leak();
-
     static bool s_queuedThisFrame = false;
     geode::listenForAllSettingChanges([&](std::string_view, std::shared_ptr<geode::SettingV3>) {
         if (s_queuedThisFrame) return;

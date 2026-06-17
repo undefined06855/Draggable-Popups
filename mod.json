@@ -11,7 +11,7 @@
     "id": "undefined0.draggable-popups",
     "name": "Draggable Popups",
     "developer": "undefined0",
-    "description": "Allows you to drag popups! Useful in the editor.",
+    "description": "Allows you to drag popups! Useful in the editor, to preview options.",
     "tags": [ "universal", "editor", "interface" ],
 
     "dependencies": {
