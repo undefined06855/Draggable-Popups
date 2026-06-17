@@ -36,13 +36,6 @@
             "default": "None",
             "one-of": [ "None", "Ctrl", "Alt", "Shift", "Ctrl+Shift", "Ctrl+Alt", "Alt+Shift", "Ctrl+Alt+Shift" ],
             "platforms": [ "desktop" ]
-        },
-        "scroll-wheel-enabled": {
-            "type": "bool",
-            "name": "Scroll Wheel Enabled",
-            "description": "Whether the scroll wheel can be used to zoom popups in and out.",
-            "default": true,
-            "platforms": [ "desktop" ]
         }
     }
 }
