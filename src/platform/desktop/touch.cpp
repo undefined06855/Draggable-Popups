@@ -35,7 +35,7 @@ $on_mod(Loaded) {
         if (y == 0.0) return geode::ListenerResult::Propagate;
 
         float scale = y < 0.0 ? .75f : 1.3333f;
-        return DraggablePopupManager::get().scroll(y);
+        return DraggablePopupManager::get().scroll(scale);
     }, -10).leak();
 
     geode::MouseMoveEvent().listen([](int32_t x, int32_t y) {
