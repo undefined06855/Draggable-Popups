@@ -1,3 +1,3 @@
-# Example Mod
+# Draggable Popups
 ## v1.0.0
 - Initial release
