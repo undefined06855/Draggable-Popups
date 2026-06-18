@@ -7,6 +7,10 @@ DraggablePopupManager::DraggablePopupManager()
     , m_dragging(false)
     , m_dragStart(0.f, 0.f)
     , m_popupInitialPos(0.f, 0.f)
+
+    , m_closeTarget(nullptr)
+    , m_hoveringCloseTarget(false)
+
     , m_popupRenderNode(nullptr)
     , m_popupInitialScale(0.f) {}
 
@@ -47,7 +51,41 @@ bool DraggablePopupManager::move(cocos2d::CCPoint pos) {
     }
 
     if (auto layer = m_layer.lock()) {
-        layer->setPosition(m_popupInitialPos + (pos - m_dragStart));
+        auto position = m_popupInitialPos + (pos - m_dragStart);
+        if (!m_hoveringCloseTarget) {
+            layer->setPosition(position);
+        }
+
+        if (m_closeTarget && m_closeTarget->pointIsCloseEnough(pos) && !m_hoveringCloseTarget) {
+            m_closeTarget->hover();
+            m_hoveringCloseTarget = true;
+
+            this->stopAllAnimsOnPopup(layer);
+
+            auto scaleAction = cocos2d::CCEaseExponentialOut::create(cocos2d::CCScaleBy::create(.4f, .3f));
+            scaleAction->setTag(6855);
+            layer->runAction(scaleAction);
+
+            // something something ignoreAnchorPointforPosition smh.....
+            auto target = m_closeTarget->getPosition() - layer->getContentSize() / 2.f;
+            auto moveAction = cocos2d::CCEaseExponentialOut::create(cocos2d::CCMoveTo::create(.4f, target));
+            moveAction->setTag(6855);
+            layer->runAction(moveAction);
+        } else if (m_closeTarget && !m_closeTarget->pointIsCloseEnough(pos) && m_hoveringCloseTarget) {
+            m_closeTarget->unhover();
+            m_hoveringCloseTarget = false;
+
+            this->stopAllAnimsOnPopup(layer);
+
+            auto scaleAction = cocos2d::CCEaseExponentialOut::create(cocos2d::CCScaleBy::create(.4f, 1.f / .3f));
+            scaleAction->setTag(6855);
+            layer->runAction(scaleAction);
+
+            auto moveAction = cocos2d::CCEaseExponentialOut::create(cocos2d::CCMoveTo::create(.4f, position));
+            moveAction->setTag(6855);
+            layer->runAction(moveAction);
+        }
+
         return geode::ListenerResult::Stop;
     } else {
         this->stopDrag();
@@ -66,7 +104,10 @@ bool DraggablePopupManager::scroll(float scale) {
             return geode::ListenerResult::Stop;
         }
 
-        layer->setScale(finalScale);
+        if (!m_hoveringCloseTarget) {
+            layer->setScale(finalScale);
+        }
+
         return geode::ListenerResult::Stop;
     } else {
         this->stopDrag();
@@ -117,8 +158,18 @@ void DraggablePopupManager::beginDragOn(FLAlertLayer* layer, cocos2d::CCPoint po
     );
 
     m_popupRenderNode = alpha::ui::RenderNode::create(m_nodeVisitWrapper, /* constrain */ false);
-    m_popupRenderNode->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCFadeTo::create(.2f, 100)));
+    m_popupRenderNode->setID("popup-render-node"_spr);
+    m_popupRenderNode->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCFadeTo::create(.2f, 120)));
     layer->getParent()->addChild(m_popupRenderNode, layer->getZOrder());
+
+    if (geode::Mod::get()->getSettingValue<bool>("enable-close-target")) {
+        auto winSize = cocos2d::CCDirector::get()->getWinSize();
+        m_closeTarget = ClosePopupTarget::create();
+        m_closeTarget->setID("close-target"_spr);
+        m_closeTarget->setPosition({ winSize.width / 2.f, 40.f });
+        geode::OverlayManager::get()->addChild(m_closeTarget);
+    }
+    m_hoveringCloseTarget = false;
 
     this->stopAllAnimsOnPopup(layer);
     auto scaleAnim = cocos2d::CCEaseExponentialOut::create(cocos2d::CCScaleBy::create(.1f, .95f));
@@ -135,6 +186,8 @@ void DraggablePopupManager::beginDragOn(FLAlertLayer* layer, cocos2d::CCPoint po
         layer->setUserObject("initial-scale"_spr, cocos2d::CCFloat::create(layer->getScale()));
     }
 
+    layer->setUserFlag("is-being-dragged"_spr);
+
     // malikhw47.blur-behind-popups
     auto blurOptions = layer->getUserObject("thesillydoggo.blur-api/blur-options");
     if (blurOptions) {
@@ -150,6 +203,15 @@ void DraggablePopupManager::beginDragOn(FLAlertLayer* layer, cocos2d::CCPoint po
             blurAlertLayerColor->setUserObject("thesillydoggo.blur-api/blur-options", nullptr);
         }
     }
+
+    if (!layer->getUserFlag("added-exit-callback"_spr)) {
+        layer->setUserFlag("added-exit-callback"_spr);
+        layer->addCleanupCallback([this, layer] {
+            if (m_dragging && m_layer.lock() == layer && !layer->getUserFlag("closing-with-close-target"_spr)) {
+                this->stopDrag();
+            }
+        });
+    }
 }
 
 void DraggablePopupManager::stopDrag() {
@@ -157,6 +219,7 @@ void DraggablePopupManager::stopDrag() {
 
     if (auto layer = m_layer.lock()) {
         this->stopAllAnimsOnPopup(layer);
+
         auto scaleAnim = cocos2d::CCEaseExponentialOut::create(cocos2d::CCScaleBy::create(.1f, 1.f / .95f));
         scaleAnim->setTag(6855);
         layer->runAction(scaleAnim);
@@ -198,8 +261,11 @@ void DraggablePopupManager::stopDrag() {
                     blurAlertLayerColor->setUserObject("blur-options-copy"_spr, nullptr);
                 }
             }
+
+            layer->setUserFlag("is-being-dragged"_spr, false);
         }
 
+        // prevent dragging outside of the windoqw
         auto bg = layer->m_mainLayer->getChildByID("background");
         if (!bg) bg = layer->m_mainLayer->getChildByType<cocos2d::extension::CCScale9Sprite>(0);
         if (bg) {
@@ -225,8 +291,30 @@ void DraggablePopupManager::stopDrag() {
                 layer->runAction(adjustAnim);
             }
         }
+
+        // don't use layer after this!!!
+        if (m_hoveringCloseTarget) {
+            layer->setUserFlag("closing-with-close-target"_spr); // prevent exit callback being called
+            layer->keyBackClicked();
+        }
     }
 
+    // if we're hovering close target when we stop drag, move it down to exit
+    if (m_hoveringCloseTarget && m_closeTarget) {
+        m_closeTarget->runAction(cocos2d::CCSequence::createWithTwoActions(
+            cocos2d::CCEaseExponentialOut::create(cocos2d::CCMoveBy::create(.2f, { 0.f, -80.f })),
+            cocos2d::CCRemoveSelf::create()
+        ));
+    }
+
+    // if we're not hovering, just remove from parent
+    if (!m_hoveringCloseTarget && m_closeTarget) {
+        m_closeTarget->removeFromParent();
+    }
+
+    m_closeTarget = nullptr;
+
+    m_hoveringCloseTarget = false;
     m_popupRenderNode->removeFromParent();
     m_popupRenderNode = nullptr;
     m_nodeVisitWrapper = nullptr;

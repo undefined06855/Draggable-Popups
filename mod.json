@@ -22,6 +22,10 @@
         "source": "https://github.com/undefined06855/Draggable-Popups"
     },
 
+    "resources": {
+        "sprites": [ "resources/*.png" ]
+    },
+
     "settings": {
         "mouse-button": {
             "type": "string",
@@ -36,6 +40,12 @@
             "default": "None",
             "one-of": [ "None", "Ctrl", "Alt", "Shift", "Ctrl+Shift", "Ctrl+Alt", "Alt+Shift", "Ctrl+Alt+Shift" ],
             "platforms": [ "desktop" ]
+        },
+        "enable-close-target": {
+            "type": "bool",
+            "name": "Enable Close Target",
+            "description": "Enables a button in the bottom middle which a popup can be dragged into to close it. Similar to Android's Picture-In-Picture close action.",
+            "default": true
         }
     }
 }
