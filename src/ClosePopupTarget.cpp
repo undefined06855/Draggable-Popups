@@ -31,7 +31,7 @@ bool ClosePopupTarget::init() {
 }
 
 bool ClosePopupTarget::pointIsCloseEnough(cocos2d::CCPoint pos) {
-    return this->getPosition().getDistance(pos) < 20.f;
+    return this->getPosition().getDistance(pos) < GEODE_DESKTOP(20.f) GEODE_MOBILE(40.f);
 }
 
 void ClosePopupTarget::hover() {

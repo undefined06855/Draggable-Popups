@@ -16,7 +16,7 @@ public:
 
     ClosePopupTarget* m_closeTarget;
     bool m_hoveringCloseTarget;
-    
+
     alpha::ui::RenderNode* m_popupRenderNode;
     geode::Ref<NodeVisitWrapper> m_nodeVisitWrapper;
 
