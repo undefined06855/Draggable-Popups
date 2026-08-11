@@ -1,7 +1,7 @@
 #pragma once
 #include "NodeVisitWrapper.hpp"
 #include "ClosePopupTarget.hpp"
-#include <alphalaneous.alphas-ui-pack/include/nodes/RenderNode.hpp>
+#include "FixRenderNode.hpp"
 
 class DraggablePopupManager {
     DraggablePopupManager();
@@ -17,7 +17,7 @@ public:
     ClosePopupTarget* m_closeTarget;
     bool m_hoveringCloseTarget;
 
-    alpha::ui::RenderNode* m_popupRenderNode;
+    FixRenderNode* m_popupRenderNode;
     geode::Ref<NodeVisitWrapper> m_nodeVisitWrapper;
 
     bool input(bool down, cocos2d::CCPoint pos);
