@@ -1,5 +1,5 @@
 {
-    "geode": "5.9.0",
+    "geode": "5.10.1",
     "gd": {
         "win": "2.2081",
         "android": "2.2081",
@@ -7,7 +7,7 @@
         "ios": "2.2081"
     },
 
-    "version": "v1.0.2",
+    "version": "v1.0.3",
     "id": "undefined0.draggable-popups",
     "name": "Draggable Popups",
     "developer": "undefined0",
@@ -15,7 +15,7 @@
     "tags": [ "universal", "editor", "interface" ],
 
     "dependencies": {
-        "alphalaneous.alphas-ui-pack": "v1.0.0"
+        "alphalaneous.alphas-ui-pack": "v1.3.0"
     },
 
     "links": {

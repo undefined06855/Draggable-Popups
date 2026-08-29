@@ -157,7 +157,7 @@ void DraggablePopupManager::beginDragOn(FLAlertLayer* layer, cocos2d::CCPoint po
         }
     );
 
-    m_popupRenderNode = FixRenderNode::create(m_nodeVisitWrapper, /* constrain */ false);
+    m_popupRenderNode = alpha::ui::RenderNode::create(m_nodeVisitWrapper, /* constrain */ false);
     m_popupRenderNode->setID("popup-render-node"_spr);
     m_popupRenderNode->runAction(cocos2d::CCEaseExponentialOut::create(cocos2d::CCFadeTo::create(.2f, 120)));
     layer->getParent()->addChild(m_popupRenderNode, layer->getZOrder());

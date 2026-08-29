@@ -1,4 +1,7 @@
 # Draggable Popups
+## v1.0.3
+- Fix a linkage issue with AUP
+
 ## v1.0.2
 - Fix a QOLMod crash
 
