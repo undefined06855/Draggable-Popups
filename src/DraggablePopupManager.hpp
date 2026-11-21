@@ -1,7 +1,7 @@
 #pragma once
 #include "NodeVisitWrapper.hpp"
 #include "ClosePopupTarget.hpp"
-#include <alphalaneous.alphas-ui-pack/include/nodes/RenderNode.hpp>
+#include <alphalaneous.alphas-ui-pack/nodes/RenderNode.hpp>
 
 class DraggablePopupManager {
     DraggablePopupManager();
